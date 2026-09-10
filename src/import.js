@@ -5,36 +5,31 @@ import_grid = null
 firstline = []  //needed for import mapping
 
 
-function show_import_dialog(grid){
+async function show_import_dialog(grid){
+    try {
+        const result = await window.auroraStorage.openCsv()
+        if (result.canceled) return
 
-    // open file
-    const {remote} = require('electron')
-    const {dialog} = remote
-    const path = dialog.showOpenDialog({filters:[{name:"CSV File"}]});
+        w2utils.lock($("#main"), "Loading File...", true)
 
-    if(path == undefined) return;
+        fieldset = []
+        import_fieldset = []
+        import_grid = grid
 
-    var fs = require('fs');
+        for(var i=0;i<grid.columns.length;i++){
+            if(grid.columns[i].caption=="Date added") continue; // don't show date added
+            fieldset.push(grid.columns[i].caption)
+            import_fieldset.push(grid.columns[i].field)
+        }
 
-    w2utils.lock($( "#main" ),"Loading File...",true)
-
-    var filebuffer = fs.readFileSync(path.toString());
-
-    fieldset = []
-    import_fieldset = []
-    import_grid = grid
-
-    for(var i=0;i<grid.columns.length;i++){
-        if(grid.columns[i].caption=="Date added") continue; // don't show date added
-        fieldset.push(grid.columns[i].caption)
-        import_fieldset.push(grid.columns[i].field)
+        import_lines = result.contents.split(/(?:\r\n|\n)+/)
+        openImportPopup(fieldset,import_lines,import_fieldset)
+    } catch (error) {
+        console.error('Unable to import the CSV file.', error)
+        w2alert(`Unable to import the CSV file: ${error.message || error}`)
+    } finally {
+        w2utils.unlock($("#main"))
     }
-
-    filebuffer= filebuffer.toString()
-    import_lines = filebuffer.split(/(?:\r\n|\n)+/)
-    w2utils.unlock($( "#main" ))
-    openImportPopup(fieldset,import_lines,import_fieldset)
-
 }
 
 function import_data() {

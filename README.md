@@ -14,11 +14,18 @@ Visual Timeline
 
 
 
-## 1 Download & Installation
+## 1 Local installation
 
-You can download the current release of Aurora Incident Response from the [Releases Page](https://github.com/cyb3rfox/Aurora-Incident-Response/releases).
-Aurora Incident Response is available for MacOS, Windows and Linux. We are working on making it available for
-iPads and Android tablets as well.
+Aurora is now a local-first Vite browser application with no Electron runtime. Install Node.js 22.12 or newer and run:
+
+```bash
+cd Aurora-Incident-Response/src
+npm ci
+npm run build
+npm run preview
+```
+
+Open the localhost URL printed by Vite. The production files are generated in `src/dist/` and can also be served by any static HTTP server on `localhost` or over HTTPS.
 
 Here's a video on how to use Aurora:
 
@@ -26,35 +33,25 @@ Here's a video on how to use Aurora:
 
 ## 2 Development
 
-If you want to contribute, you are encouraged to do so. I'd totally like to see the tool growing. 
-The whole application is built on an electron base and written in plain Javascript and HTML.
-Even though technically I could have used node.js modules for functionality like Webdav I refrained from it.
-The reason is, that node modules will not run out of the box when migrating the code to phonegap for IOS and Android.
-The good news is, it's really fast to set up your development environment. I personally use Webstorm but it should work with pretty much any IDE.
+If you want to contribute, you are encouraged to do so. The application is written in JavaScript and HTML, with Vite providing the development server and production build.
 
-### 2.1 Set up your build environment
+### 2.1 Set up your development environment
 
-As pointed out in the description, Aurora Incident Response is built on top of Electron which allows for multi platform compatibility.
-You can easily install your tool chain the following way.
+Install Node.js 22.12 or newer, then install the project dependencies:
 
-Start by installing `node.js`. Follow the links to their [download page](https://nodejs.org/en/download/).
+```bash
+git clone https://github.com/cyb3rfox/Aurora-Incident-Response
+cd Aurora-Incident-Response/src
+npm ci
+```
 
-With `nodejs` installed, checkout the [Aurora Github repository](git clone https://github.com/cyb3rfox/Aurora-Incident-Response) (or fork first if you want to contribute).
+Start Vite with hot reload:
 
-<code>git clone https://github.com/cyb3rfox/Aurora-Incident-Response </code>
+```bash
+npm run dev
+```
 
-<code>cd Aurora-Incident-Response/src
-</code>
-
-Now you need to install Electron using node. Currently Aurora is configured to run with `electron` 4.0.6. 
-
-<code>npm install electron@4.0.6 </code>
-
-You can now run the code by invoking:
-
-<code>node_modules/.bin/electron .</code>
-
-That's fast, isn't it?
+Open `http://127.0.0.1:5173/` in your browser.
 
 ### 2.2 Roadmap
 
@@ -62,41 +59,46 @@ The following points are already on the roadmap. Please just post a new issue or
 
 You can checkout the planned feature for the nex releases under [projects](https://github.com/cyb3rfox/Aurora-Incident-Response/projects).
 
-### 2.3 Build executables for distribution
+### 2.3 Build for local deployment
 
-To build and cross build you I use `electron-packager`.
- 
-<code>npm install electron-packager</code>
+Create the static production application:
 
-Build for Windows:
+```bash
+npm run build
+```
 
-<code>./node_modules/.bin/electron-packager . Aurora --asar --prune --platform=win32 --electron-version=4.0.6 --arch=x64 --icon=icon/aurora.ico --out=release-builds --ignore "node_modules/\.bin" </code>
+Preview that build locally:
 
-Build for MacOS:
+```bash
+npm run preview
+```
 
-<code>./node_modules/.bin/electron-packager ./src Aurora --overwrite --platform=darwin --arch=x64 --icon=icon/aurora.icns --prune=true --out=release-builds </code>
+The deployable output is `src/dist/`. Serve it from `localhost` or HTTPS; opening `dist/index.html` directly with a `file://` URL will not provide the secure browser context required for writable local-file handles.
 
-Build for Linux:
+Run the storage-adapter tests, syntax checks, and production build with:
 
-<code>./node_modules/.bin/electron-packager . Aurora --asar --prune --platform=linux --electron-version=4.0.6 --arch=x64 --icon=icon/aurora.ico --out=release-builds --ignore "node_modules/\.bin" </code>
+```bash
+npm test
+npm run check
+```
+
+#### Local-file autosaving
+
+For in-place autosaving, use a current Chrome or Edge browser. Choose **File → Open SOD** to open an existing `.fox` file, or **File → Save SOD** to select a file for a new case. After write permission is granted, Aurora writes back to that file every five minutes and when the page is backgrounded.
+
+Browsers without writable file-handle support remain usable, but Save creates a downloaded `.fox` copy instead of overwriting the original. Keep the Aurora tab open while working; browser permissions and the selected handle belong to that tab. Use **Release Lock** before closing a shared case because browsers cannot guarantee an asynchronous unlock write while a tab is closing.
 
 ### 2.4 Sourcecode Navigator
 
 This section describes the various sourcecode files. For now I need to keep this section small. I tried to comment in the code as good as I can. If you got any questions, just ping me. If you want to join me developing the tool, there's a slack channel to communicate. Drop me a note and I will invite you.
 
-#### 2.4.1 `main.js`
+#### 2.4.1 `index.html` and `renderer.mjs`
 
-Electron apps differentiates between a main (background) and a render process(chromium browser window). This file controls the main process. 
-For aurora you usually only need to go there if you want to turn on the Javascript console in the Aurora window. Just unquote the following line:
+`index.html` is the Vite entry point. `renderer.mjs` loads the existing browser libraries and Aurora modules in their required order, installs best-effort background saving, and initializes the GUI.
 
-<code>win.webContents.openDevTools()</code> 
+#### 2.4.2 `browser-storage.mjs`
 
-The second thing that's handled there is autosaving and unlocking when you exit the program. For that the main and the render process share a global variable called <code>global.Dirty.is_dirty</code> that is used to signal to the main process if it can quit right away or if the file needs to be sanitized before exiting.
-It's actually a very similar concept to the NTFS dirty bit.
- 
-#### 2.4.2 `index.html`
-`
-This is the main Aurora file that strings together all scripts and stylesheets. It also initiates the GUI. other than that it has no functionality.
+The browser storage adapter implements `.fox` and CSV open/save operations. It uses writable local file handles when the browser supports them and download/upload fallbacks otherwise.
  
 #### 2.4.3 `gui_definitions.js`
 
@@ -119,7 +121,7 @@ Transformations like this and all logic regarding saving and opening files is lo
  
 #### 2.4.7 `data_template.js`
   
-This holds templates for the internal data format of that version. Current format version is 3. 
+This holds templates for the internal data format of that version. Current format version is 7.
  
 #### 2.4.8 `misp.js`
  
@@ -152,7 +154,7 @@ Aurora is licensed under the Apache 2 License.
 ## 4 Credits
 Projects like this can only be realized because many people invested thousands of hours into writing cool libraries and other software. Others contribute professional UI items. Thank you for all your great work. Namely I build Aurora based on the following dependencies:
 
-* Electron https://www.electronjs.org
+* Vite https://vite.dev
 * jquery https://jquery.com
 * w2ui http://w2ui.com/web/
 * vis.js https://visjs.org
@@ -174,6 +176,3 @@ Even though this is a side and weekend project it's still good to know, that my 
 The following people have contributed changes that have a significant impact on the tool:
 
 * Félix Brezo, Ph. D. (working on visualization parts)
-
-
-

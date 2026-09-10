@@ -1,14 +1,4 @@
-function export_csv(grid){
-
-    const {remote} = require('electron')
-    const {dialog} = remote
-    const selectedPath = dialog.showSaveDialog({filters: [{name: "Export File", extensions: ["csv"]}]});
-    if (selectedPath == undefined) {
-
-        w2alert('No file selected. Could not export.');
-        return false
-
-    }
+async function export_csv(grid){
     csv =""
     //generate header line
     headerline = ""
@@ -32,8 +22,15 @@ function export_csv(grid){
        csv += line +"\n"
     }
 
-    var fs = require("fs");
-    w2utils.lock($( "#main" ),"Exporting file...",true)
-    fs.writeFileSync(selectedPath.toString(), csv);
-    w2utils.unlock($( "#main" ))
+    w2utils.lock($("#main"), "Exporting file...", true)
+    try {
+        const result = await window.auroraStorage.saveCsv(csv)
+        return !result.canceled
+    } catch (error) {
+        console.error('Unable to export the CSV file.', error)
+        w2alert(`Unable to export the CSV file: ${error.message || error}`)
+        return false
+    } finally {
+        w2utils.unlock($("#main"))
+    }
 }
