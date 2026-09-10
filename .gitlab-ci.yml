@@ -10,8 +10,8 @@ pages:
     - cd src
     - npm install
     - npm run build
-    - mkdir -p public
-    - cp -fr dist/* public/
+    - mkdir -p ../public
+    - cp -fr dist/* ../public/
   artifacts:
     paths:
       - public
