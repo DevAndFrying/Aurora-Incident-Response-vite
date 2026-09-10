@@ -16,7 +16,7 @@ Visual Timeline
 
 ## 1 Local installation
 
-Aurora is now a local-first Vite browser application with no Electron runtime. Install Node.js 22.12 or newer and run:
+Aurora 0.7 is a local-first Vite browser application with no Electron runtime. Install Node.js 22.12 or newer and run:
 
 ```bash
 cd Aurora-Incident-Response/src
