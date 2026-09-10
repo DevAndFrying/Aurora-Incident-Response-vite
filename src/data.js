@@ -7,8 +7,40 @@ currentmethod = "file"
 // indicates if the user currently has the lock
 lockedByMe = true
 
-// For new Files set case data to the default template
-case_data = data_template
+// For new files clone the default so editing a case never mutates the template.
+case_data = JSON.parse(JSON.stringify(data_template))
+
+manualSaveNoticeShown = false
+
+function escapeStorageLabel(value) {
+    return String(value).replace(/[&<>"']/g, function(character) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[character]
+    })
+}
+
+function updateStorageIndicator() {
+    if (typeof w2ui === 'undefined' || !w2ui.sidebar) return
+
+    var fileLabel = currentfile ? escapeStorageLabel(currentfile) : 'Unsaved case'
+    var autosaveLabel = window.auroraStorage.canAutosave()
+        ? '&#128190; Local autosave enabled'
+        : currentfile
+            ? '&#128190; Manual save mode'
+            : '&#128190; Save to enable autosave'
+    var currentLockState = typeof lockstate === 'undefined'
+        ? '&#128272; Case unlocked (edits allowed)'
+        : lockstate
+
+    w2ui.sidebar.bottomHTML = '<div id="lock" style="background-color: #eee; padding: 10px 5px; border-top: 1px solid silver">' +
+        currentLockState + '<br>' + autosaveLabel + '<br><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + fileLabel + '">' + fileLabel + '</span></div>'
+    w2ui.sidebar.refresh()
+}
 
 
 ///////////////////////////
@@ -33,7 +65,7 @@ function syncAllChanges(){
     w2ui.grd_exfiltration.save()
     case_data.exfiltration = w2ui.grd_exfiltration.records
     w2ui.grd_osint.save()
-    case_data.osint = w2ui.grd_systems.records
+    case_data.osint = w2ui.grd_osint.records
     w2ui.grd_systems.save()
     case_data.systems = w2ui.grd_systems.records
     w2ui.grd_actions.save()
@@ -54,14 +86,12 @@ function syncAllChanges(){
  * This function invokes the correct storage method for the currenty opened project
  */
 
-function updateSOD(){
+async function updateSOD(){
     switch(currentmethod){
         case "file":
-            updateSODFile()
-            break;
+            return updateSODFile()
         case "webdav":
-            updateSODWebdav()
-            break
+            return updateSODWebdav()
     }
 }
 
@@ -70,19 +100,7 @@ function updateSOD(){
 /**
  * Get current information from storage file and write to th ui objects.
  */
-function updateSODFile() { //TODO: need to write that in a way that it also works when you don0t have the lock. currently all calls to editable will fail when they are not set
-    var fs = require('fs');
-    w2utils.lock($( "#main" ),"Loading file...",true)
-
-    var filebuffer = fs.readFileSync(currentfile.toString());
-    case_data = JSON.parse(filebuffer);
-
-    w2utils.unlock($( "#main" ))
-    if(case_data.hasOwnProperty(storage_format_version) && case_data.storage_format_version < storage_format_version){
-        w2alert("You are opening a file created with a newer version of Aurora IR. Please upgrade to the newest version of Aurora IR and try again")
-        return false
-    }
-
+function renderCaseData() {
     w2ui.grd_timeline.records = case_data.timeline
     w2ui.grd_timeline.refresh()
     w2ui.grd_investigated_systems.records = case_data.investigated_systems
@@ -95,7 +113,7 @@ function updateSODFile() { //TODO: need to write that in a way that it also work
     w2ui.grd_network.refresh()
     w2ui.grd_exfiltration.records = case_data.exfiltration
     w2ui.grd_exfiltration.refresh()
-    w2ui.grd_osint.records = case_data.systems
+    w2ui.grd_osint.records = case_data.osint
     w2ui.grd_osint.refresh()
     w2ui.grd_systems.records = case_data.systems
     w2ui.grd_systems.refresh()
@@ -115,8 +133,40 @@ function updateSODFile() { //TODO: need to write that in a way that it also work
         w2ui.grd_timeline.getColumn('event_source_host').editable.items = case_data.systems
     }
 
-    // Data from the case Details popup is taken right from the storage object. So no need to update it here.
+    // Data from the case Details popup is taken right from the storage object.
+}
+
+function validateAndUpgradeCaseData() {
+    if (case_data.storage_format_version > storage_format_version) {
+        w2alert("You are opening a file created with a newer version of Aurora IR. Please upgrade Aurora IR and try again.")
+        return false
+    }
+
+    if (!case_data.storage_format_version || case_data.storage_format_version < storage_format_version) {
+        updateVersion(case_data.storage_format_version || 0)
+    }
+
     return true
+}
+
+async function updateSODFile() {
+    if (!currentfile) return true
+
+    w2utils.lock($("#main"), "Loading file...", true)
+    try {
+        const contents = await window.auroraStorage.readCase(currentfile)
+        case_data = JSON.parse(contents)
+
+        if (!validateAndUpgradeCaseData()) return false
+        renderCaseData()
+        return true
+    } catch (error) {
+        console.error('Unable to update the current case file.', error)
+        w2alert(`Unable to update the current case file: ${error.message || error}`)
+        return false
+    } finally {
+        w2utils.unlock($("#main"))
+    }
 }
 
 
@@ -135,7 +185,7 @@ function updateSODWebdav() {
 function newSOD() {
     w2confirm('Are you sure you want to create a new SOD? All unsaved data will be lost.', function btn(answer) {
         if (answer == "Yes") {
-            case_data = data_template
+            case_data = JSON.parse(JSON.stringify(data_template))
             w2ui.grd_timeline.clear()
             w2ui.grd_timeline.render()
             w2ui.grd_investigated_systems.clear()
@@ -162,12 +212,14 @@ function newSOD() {
             w2ui.grd_evidence.render()
 
             currentfile = "";
+            window.auroraStorage.closeCase()
             deactivateReadOnly()
             stopAutoUpdate()
             startAutoSave()
             lockstate = "&#128272; Case unlocked (edits allowed)"
             $("#lock").html(lockstate)
             lockedByMe = true
+            updateStorageIndicator()
 
             w2ui.main_layout.content('main', w2ui.grd_timeline);
         }
@@ -179,16 +231,15 @@ function newSOD() {
  * Method to invoke when there is reason to save back. Controlled by the
  * currentmethod variable it calls the correct concrete implementation
  */
-function saveSOD(){
+async function saveSOD(options){
+    options = options || {}
     //TODO: After implementing webdav: If the file has not been saved before (filepath is empty), ask if the user wants to save to filesystem or webdav
     switch(currentmethod){
         case "file":
-            return saveSODFile()
-            break;
+            return saveSODFile(options)
 
         case "webdav":
             return saveSODWebdav()
-            break
     }
 }
 
@@ -197,15 +248,13 @@ function saveSOD(){
  * Method to invoke when there is reason to open. Controlled by the
  * currentmethod variable it calls the correct concrete implementation
  */
-function openSOD(){
+async function openSOD(){
     switch(currentmethod){
         case "file":
-            openSODFile()
-            break;
+            return openSODFile()
 
         case "webdav":
-            openSODWebdav()
-            break
+            return openSODWebdav()
     }
 }
 
@@ -285,115 +334,117 @@ function updateVersion(current_version){
 /**
  * Saves file to drive or share
  */
-function saveSODFile(){
+async function saveSODFile(options){
+    options = options || {}
+    var interactive = options.interactive !== false
+
     if(case_data.locked && !lockedByMe){
-        w2alert("Cannot save. File locked by another analyst." );
-        return
+        if (interactive) w2alert("Cannot save. File locked by another analyst." );
+        return false
     }
+
     syncAllChanges()
     case_data.storage_format_version=storage_format_version
-    if(currentfile == "") {
-        const {remote} = require('electron')
-        const {dialog} = remote
-        const selectedPaths = dialog.showSaveDialog({filters: [{name: "Case File", extensions: ["fox"]}]});
-        if (selectedPaths == undefined) {
+    w2utils.lock($("#main"), "Saving file...", true)
 
-            w2alert('Could not save case.');
+    try {
+        const result = await window.auroraStorage.saveCase(
+            currentfile || null,
+            JSON.stringify(case_data, null, "\t"),
+            { interactive: interactive }
+        )
+
+        if (result.canceled) return false
+        if (!result.saved) {
+            console.warn('Local autosave was skipped because the browser no longer has write permission.')
+            stopAutoSave()
+            updateStorageIndicator()
             return false
-
         }
-        currentfile = selectedPaths
+
+        currentfile = result.filePath
+
+        if (result.persistent) {
+            if (autosave_interval === null) startAutoSave()
+        } else {
+            stopAutoSave()
+            if (interactive && !manualSaveNoticeShown) {
+                manualSaveNoticeShown = true
+                w2alert('This browser saved a downloaded copy. For in-place local autosaving, open Aurora on localhost in Chrome or Edge.')
+            }
+        }
+
+        updateStorageIndicator()
+        return true
+    } catch (error) {
+        console.error('Unable to save the case file.', error)
+        w2alert(`Unable to save the case file: ${error.message || error}`)
+        return false
+    } finally {
+        w2utils.unlock($("#main"))
     }
-
-    var fs = require("fs");
-    w2utils.lock($( "#main" ),"Saving file...",true)
-    var buffer = new Buffer.from(JSON.stringify(case_data,null, "\t"));
-    fs.writeFileSync(currentfile.toString(), buffer);
-    w2utils.unlock($( "#main" ))
-    var today = new Date();
-    var time=('0'  + today.getHours()).slice(-2)+':'+('0'  + today.getMinutes()).slice(-2)+':'+('0' + today.getSeconds()).slice(-2);
-
-    w2ui.sidebar.bottomHTML = '<div id="lock" style="background-color: #eee; padding: 10px 5px; border-top: 1px solid silver">'+lockstate+'</div>'
-    w2ui.sidebar.refresh()
-
-    return true
 }
 
 /**
  * Opens SOD file from Disk or Share
  */
 function openSODFile() {
-    w2confirm('Are you sure you want to open a SOD? All unsaved data in the current one will be lost.', function btn(answer) {
+    w2confirm('Are you sure you want to open a SOD? All unsaved data in the current one will be lost.', async function btn(answer) {
         if (answer == "Yes") {
-            const {remote} = require('electron')
-            const {dialog} = remote
-            const path = dialog.showOpenDialog({filters:[{name:"Case File",extensions:["fox"]}]});
+            var selectedCase = null
+            var previousCaseData = case_data
+            var caseAccepted = false
+            try {
+                selectedCase = await window.auroraStorage.openCase()
+                if (selectedCase.canceled) return
 
-            if(path == undefined) return;
-            currentfile = path
+                const openedCaseData = JSON.parse(selectedCase.contents)
+                case_data = openedCaseData
 
-            var fs = require('fs');
+                if (!validateAndUpgradeCaseData()) {
+                    case_data = previousCaseData
+                    window.auroraStorage.discardOpenedCase(selectedCase.selectionId)
+                    return
+                }
+                renderCaseData()
+                window.auroraStorage.acceptOpenedCase(selectedCase.selectionId)
+                currentfile = selectedCase.filePath
+                caseAccepted = true
 
-            var filebuffer = fs.readFileSync(path.toString());
-            case_data = JSON.parse(filebuffer);
+                w2ui.main_layout.content('main', w2ui.grd_timeline)
+                w2ui.sidebar.select('timeline')
 
-            if(case_data.hasOwnProperty(storage_format_version) && case_data.storage_format_version < storage_format_version){
-                w2alert("You are opening a file created with a newer version of Aurora IR. Please upgrade to the newest version of Aurora IR and try again")
-                return
+                if (!selectedCase.persistent) {
+                    case_data.locked = false
+                    lockedByMe = true
+                    deactivateReadOnly()
+                    stopAutoSave()
+                    stopAutoUpdate()
+                    lockstate = "&#128272; Case unlocked (edits allowed)"
+                    updateStorageIndicator()
+                    w2alert('The case is open in manual save mode. For in-place local autosaving, use Chrome or Edge and access Aurora through localhost or HTTPS.')
+                } else if (case_data.locked) {
+                    w2alert("The SOD is locked by another analyst. Opening in Readonly mode.")
+                    lockedByMe = false
+                    activateReadOnly()
+                    stopAutoSave()
+                    startAutoUpdate()
+                } else {
+                    await requestLock(true)
+                }
+
+                w2ui.main_layout.content('main', w2ui.grd_timeline)
+            } catch (error) {
+                if (!caseAccepted) window.auroraStorage.discardOpenedCase(selectedCase?.selectionId)
+                if (!caseAccepted && case_data !== previousCaseData) {
+                    case_data = previousCaseData
+                    renderCaseData()
+                }
+                console.error('Unable to open the case file.', error)
+                w2alert(`Unable to open the case file: ${error.message || error}`)
             }
-
-            if(case_data.storage_format_version< storage_format_version){
-                updateVersion(case_data.storage_format_version)
-            }
-
-            w2ui.grd_timeline.records = case_data.timeline
-            w2ui.grd_timeline.refresh()
-            w2ui.grd_investigated_systems.records = case_data.investigated_systems
-            w2ui.grd_investigated_systems.refresh()
-            w2ui.grd_malware.records = case_data.malware
-            w2ui.grd_malware.refresh()
-            w2ui.grd_accounts.records = case_data.compromised_accounts
-            w2ui.grd_accounts.refresh()
-            w2ui.grd_network.records = case_data.network_indicators
-            w2ui.grd_network.refresh()
-            w2ui.grd_exfiltration.records = case_data.exfiltration
-            w2ui.grd_exfiltration.refresh()
-            w2ui.grd_osint.records = case_data.osint
-            w2ui.grd_osint.refresh()
-            w2ui.grd_systems.records = case_data.systems
-            w2ui.grd_systems.refresh()
-            w2ui.grd_actions.records = case_data.actions
-            w2ui.grd_actions.refresh()
-            w2ui.grd_evidence.records = case_data.evidence
-            w2ui.grd_evidence.refresh()
-            w2ui.grd_investigators.records = case_data.investigators
-            w2ui.grd_investigators.refresh()
-            w2ui.grd_casenotes.records = case_data.casenotes
-            w2ui.grd_casenotes.refresh()
-
-            w2ui['grd_timeline'].getColumn('owner').editable.items = case_data.investigators
-            w2ui.grd_timeline.getColumn('event_host').editable.items = case_data.systems
-            w2ui.grd_timeline.getColumn('event_source_host').editable.items = case_data.systems
-
-            w2ui.main_layout.content('main', w2ui.grd_timeline);
-            w2ui.sidebar.select('timeline')
-
-            // check if its locked
-            if (case_data.locked){
-                w2alert("The SOD is locked by another analyst. Opening in Readonly mode.")
-                lockedByMe = false
-                activateReadOnly()
-                stopAutoSave()
-                startAutoUpdate()
-            }
-            else {
-
-                requestLock(true)
-            }
-
-            w2ui.main_layout.content('main', w2ui.grd_timeline);
         }
-    });
+    })
 }
 
 
@@ -425,24 +476,21 @@ function openSODWebdav() {
 /**
  * The user wants to lock the file so editing is possible
  */
-function lockSOD(){ // check if it is still needed - switched everything over to requestlock()
+async function lockSOD(){ // check if it is still needed - switched everything over to requestlock()
 
     case_data.locked=true
     lockedByMe = true
-    var fs = require("fs");
-    var buffer = new Buffer.from(JSON.stringify(case_data,null, "\t"));
-    fs.writeFileSync(currentfile.toString(), buffer);
     deactivateReadOnly()
-    saveSOD()
+    await saveSOD()
 
 }
 
 /**
  * The user releases the file so anyone else can successfully obtain the lock
  */
-function releaseLock(){
+async function releaseLock(){
     case_data.locked = false
-    saveSOD()
+    if (!await saveSOD()) return
     lockedByMe = false
     activateReadOnly()
     stopAutoSave()
@@ -453,8 +501,8 @@ function releaseLock(){
  * Try to obtain the lock to make the data editable
  * @param sodiscurrent - if this method is called right after a sod was loaded there is no need to load it again to check the lock state.
  */
-function requestLock() {
-    if (updateSOD() == false) {
+async function requestLock() {
+    if (await updateSOD() == false) {
         activateReadOnly()
         w2alert("You are opening a file created with a newer version of Aurora IR. Please upgrade to the newest version of Aurora IR and try again")
         return
@@ -475,19 +523,19 @@ function requestLock() {
     lockedByMe = true
     case_data.locked=true
 
-    saveSOD()
+    await saveSOD()
 }
 
 /**
  * Forces the lock. Data could become inconsistent
  */
 function forceUnLock() {
-    w2confirm('You are about to force-aqcuire the lock on the file. If anyone else still has the file opened it might lead to data loss.', function btn(answer) {
+    w2confirm('You are about to force-aqcuire the lock on the file. If anyone else still has the file opened it might lead to data loss.', async function btn(answer) {
         if (answer == "No") {
             return
         }
         else {
-            if (updateSOD() == false) {
+            if (await updateSOD() == false) {
                 activateReadOnly()
                 w2alert("You are opening a file created with a newer version of Aurora IR. Please upgrade to the newest version of Aurora IR and try again.")
                 return
@@ -502,13 +550,13 @@ function forceUnLock() {
             case_data.locked=true
 
             // Deal with save button
-            w2ui['toolbar'].ensable('file:save_sod');
+            w2ui['toolbar'].enable('file:save_sod');
 
             // Deal with locks
-            w2ui['toolbar'].ensable('file:release_lock');
+            w2ui['toolbar'].enable('file:release_lock');
             w2ui['toolbar'].disable('file:request_lock');
             w2ui['toolbar'].disable('file:force_unlock');
-            saveSOD()
+            await saveSOD()
         }
     })
 }
@@ -560,26 +608,31 @@ autoupdate_interval = null // for readonly mode
  * Autosave mode is activated when the user has the write lock. The Current state will be saved to the storage file every 5 minutes.
  */
 function startAutoSave(){
-
-    autosave_interval = setInterval(saveSOD, 5 * 60 * 1000); // autosave all 5 minutes
+    stopAutoSave()
+    if (!currentfile || !window.auroraStorage.canAutosave()) return
+    autosave_interval = setInterval(function() {
+        void saveSOD({ interactive: false })
+    }, 5 * 60 * 1000); // autosave every 5 minutes
 }
 
 function stopAutoSave(){
 
     clearInterval(autosave_interval);
+    autosave_interval = null
 }
 
 /**
  * AutoUpdate mode is activated when the user is in read-only mode. The current state will be read from the storage file every minute and pushed into the gui.
  */
 function startAutoUpdate(){
-
+    stopAutoUpdate()
     autoupdate_interval = setInterval(updateSOD, 60 * 1000); // autoupdate every minute
 }
 
 function stopAutoUpdate(){
 
     clearInterval(autoupdate_interval)
+    autoupdate_interval = null
 }
 
 
@@ -636,24 +689,6 @@ function updateSystems(event){
     }
 }
 
-///////////////
-///// IPC /////
-///////////////
-
-function cleanup (){
-
-    if(case_data.locked && lockedByMe){
-        case_data.locked=false
-        saveSOD()
-        const remote = require('electron').remote
-        remote.getGlobal('Dirty').is_dirty = false   // file on drive/server is unlocked again
-        let w = remote.getCurrentWindow()
-        w.close()
-    } else {
-        const remote = require('electron').remote
-        remote.getGlobal('Dirty').is_dirty = false   // file on drive/server is unlocked again
-        let w = remote.getCurrentWindow()
-        w.close()
-    }
-
-}
+// Browsers cannot reliably wait for asynchronous file writes while a tab is
+// closing. renderer.mjs therefore performs a best-effort save when the page is
+// hidden, and the explicit Release Lock action remains the reliable unlock path.

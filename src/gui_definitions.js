@@ -136,7 +136,7 @@ var config = {
         bottomHTML : '<div id="lock" style="background-color: #eee; padding: 10px 5px; border-top: 1px solid silver">&#128272; Case unlocked (edits allowed)</div>',
         nodes: [
             { id: 'investigation', text: 'Investigation', group: true, expanded: true, nodes: [
-                    { id: 'timeline', text: 'Timeline', icon: 'fa fa-clock-o'},
+                    { id: 'timeline', text: 'Timeline', icon: 'fa fa-clock'},
                     { id: 'investigated_systems', text: 'Investigated Systems', icon: 'fa fa-search-plus' },
                     { id: 'malware', text: 'Malware/Tools', icon: 'fa fa-bug'},
                     { id: 'accounts', text: 'Compromised Accounts', icon: 'fa fa-users'},
@@ -146,9 +146,9 @@ var config = {
                     { id: 'systems', text: 'Systems', icon: 'fa fa-desktop'},
                 ]},
             { id: 'reporting', text: 'Reporting', group: true, expanded: true, nodes: [
-                    { id: 'vis_timeline', text: 'Visual Timeline', icon: 'fa fa-calendar-o'},
+                    { id: 'vis_timeline', text: 'Visual Timeline', icon: 'fa fa-calendar'},
                     { id: 'lateral', text: 'Lateral Movement', icon: 'fa fa-share-alt'},
-                    { id: 'activity', text: 'Activity Plot', icon: 'fa fa-bar-chart'}
+                    { id: 'activity', text: 'Activity Plot', icon: 'fa fa-chart-bar'}
                 ]},
             { id: 'case_management', text: 'Case Management', group: true, expanded: true, nodes: [
                     { id: 'investigators', text: 'Investigators', icon: 'fa fa-user'},
@@ -227,7 +227,7 @@ var config = {
         },
         menu: [
 
-            { id: "to_tl", text: 'To Timeline', icon: 'fa fa-clock-o' },
+            { id: "to_tl", text: 'To Timeline', icon: 'fa fa-clock' },
             { id: "duplicate", text: 'Duplicate Line', icon: 'fa fa-copy'}
         ],
         multiSearch: true,
@@ -281,7 +281,7 @@ var config = {
         menu: [
             { id: "duplicate", text: 'Duplicate Line', icon: 'fa fa-copy'},
             { id: "to_hosts", text: 'To hosts', icon: 'fa fa-bullseye' },
-            { id: "to_tl", text: 'To Timeline', icon: 'fa fa-clock-o' },
+            { id: "to_tl", text: 'To Timeline', icon: 'fa fa-clock' },
             { id: 'misp', type: 'button', caption: 'Send to MISP', icon: 'fa fa-cloud' },
             { id: 'vt', type: 'button', caption: 'Check VT', icon: 'fa fa-search' },
         ],
@@ -445,7 +445,7 @@ var config = {
         },
         menu: [
             { id: "duplicate", text: 'Duplicate Line', icon: 'fa fa-copy'},
-            { id: "to_tl", text: 'To Timeline', icon: 'fa fa-clock-o' },
+            { id: "to_tl", text: 'To Timeline', icon: 'fa fa-clock' },
         ],
         multiSearch: true,
         searches: [
@@ -796,7 +796,7 @@ about_content = `
     (c) 2018-2021 Mathias Fuchs (<a onclick="browser_open('https://cyberfox.blog')" href="#">https://cyberfox.blog</a>)
     <p>Released under Apache 2.0 License</p>
     <p>Supported and used by <a onclick="browser_open('https://www.infoguard.ch')" href="#">InfoGuard</a></p>
-    <p>Application build using electron.js - <a onclick="browser_open('https://electronjs.org')"  href="#">https://electronjs.org</a></p>
+    <p>Local-first browser application built with <a onclick="browser_open('https://vite.dev')" href="#">Vite</a></p>
     <p>Icons provided by <a onclick="browser_open('https://icons8.com')"  href="#">https://icons8.com</a> and <a onclick="browser_open('https://fontawesome.com')"  href="#">https://fontawesome.com</a> </p>
     <p>UI designed using <a onclick="browser_open('http://w2ui.com')"  href="#">http://w2ui.com</a></p>
     <p>Visualization uses <a onclick="browser_open('http://visjs.org')"  href="#">http://visjs.org</a> and <a onclick="browser_open('https://www.chartjs.org')"  href="#">https://www.chartjs.org</a></p>
@@ -841,4 +841,3 @@ for(let grid in config)
         }
     }
 };
-

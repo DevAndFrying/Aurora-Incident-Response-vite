@@ -1,11 +1,13 @@
 /**
  *
- * Opens a web url in an external browser window rather than in the electron app.
+ * Opens a web URL in a separate browser tab.
  * @param {string} url - url to open in external browser windows
  */
-browser_open =function(url){
-    const { shell } = require('electron')
-    shell.openExternal(url)
+browser_open = function(url){
+    return window.auroraStorage.openExternal(url).catch(function(error) {
+        console.error('Unable to open the external link.', error)
+        w2alert(`Unable to open the external link: ${error.message || error}`)
+    })
 }
 
 
@@ -44,5 +46,3 @@ function CSVtoArrayEasy(text){
     return text.split(",")
 
 }
-
-

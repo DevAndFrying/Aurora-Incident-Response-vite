@@ -1,5 +1,22 @@
+@font-face {
+    font-family: "FontAwesome";
+    src: url("../fonts/fontawesome-webfont.woff2") format("woff2"),
+         url("../fonts/fontawesome-webfont.woff") format("woff");
+    font-style: normal;
+    font-weight: normal;
+}
+
 html,body { height: 100%;width:100%; margin: 0px; padding: 0px; }
 #main { background: lightgrey; height: 100%; width:100%; }
+
+.startup-error {
+    box-sizing: border-box;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 64px 32px;
+    color: #521d1d;
+    font-family: system-ui, sans-serif;
+}
 
 .vis-timeline {
     border: 2px solid #666666;
