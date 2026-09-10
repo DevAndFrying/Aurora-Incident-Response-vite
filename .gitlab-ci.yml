@@ -1,0 +1,19 @@
+default:
+  image: registry1.dso.mil/ironbank/opensource/nodejs/nodejs24:24-slim
+cache:
+  paths:
+    - node_modules/
+pages:
+  image: registry1.dso.mil/ironbank/opensource/nodejs/nodejs24:24-slim
+  stage: deploy
+  script:
+    - cd src
+    - npm install
+    - npm run build
+    - mkdir -p public
+    - cp -fr dist/* public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
