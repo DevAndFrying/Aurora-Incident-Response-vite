@@ -1,4 +1,5 @@
 import { createBrowserStorage } from './browser-storage.mjs'
+import './helper_functions.js'
 import visScript from './js/vis.js?url'
 import jqueryScript from './js/jquery.min.js?url'
 import w2uiScript from './js/w2ui-1.5.rc1.min.js?url'
@@ -14,7 +15,6 @@ import guiFunctionsScript from './gui_functions.js?url'
 import settingsScript from './settings.js?url'
 import importScript from './import.js?url'
 import exportScript from './export.js?url'
-import helperFunctionsScript from './helper_functions.js?url'
 import caseDetailsForm from './templates/case_details_form.html?raw'
 
 window.auroraStorage = createBrowserStorage()
@@ -41,8 +41,7 @@ const legacyScripts = [
     guiFunctionsScript,
     settingsScript,
     importScript,
-    exportScript,
-    helperFunctionsScript
+    exportScript
 ]
 
 function loadStylesheet(relativePath) {

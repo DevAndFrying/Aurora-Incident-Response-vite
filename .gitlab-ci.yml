@@ -8,8 +8,8 @@ pages:
   stage: deploy
   script:
     - cd src
-    - npm install
-    - npm run build
+    - npm ci
+    - npm run check
     - mkdir -p ../public
     - cp -fr dist/* ../public/
   artifacts:

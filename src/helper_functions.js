@@ -3,7 +3,7 @@
  * Opens a web URL in a separate browser tab.
  * @param {string} url - url to open in external browser windows
  */
-browser_open = function(url){
+window.browser_open = function(url){
     return window.auroraStorage.openExternal(url).catch(function(error) {
         console.error('Unable to open the external link.', error)
         w2alert(`Unable to open the external link: ${error.message || error}`)
@@ -16,7 +16,7 @@ browser_open = function(url){
  * Return array of string values, or NULL if CSV string not well formed.
  * @param {string} text - csv line
  */
-function CSVtoArray(text) {
+window.CSVtoArray = function(text) {
     var re_valid = /^\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|"[^"\\]*(?:\\[\S\s][^"\\]*)*"|[^,'"\s\\]*(?:\s+[^,'"\s\\]+)*)\s*(?:,\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|"[^"\\]*(?:\\[\S\s][^"\\]*)*"|[^,'"\s\\]*(?:\s+[^,'"\s\\]+)*)\s*)*$/;
     var re_value = /(?!\s*$)\s*(?:'([^'\\]*(?:\\[\S\s][^'\\]*)*)'|"([^"\\]*(?:\\[\S\s][^"\\]*)*)"|([^,'"\s\\]*(?:\s+[^,'"\s\\]+)*))\s*(?:,|$)/g;
 
@@ -41,7 +41,7 @@ function CSVtoArray(text) {
     return a;
 }
 
-function CSVtoArrayEasy(text){
+window.CSVtoArrayEasy = function(text){
 
     return text.split(",")
 
